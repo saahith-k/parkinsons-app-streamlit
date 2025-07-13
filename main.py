@@ -1,55 +1,57 @@
-# main.py
-
 import streamlit as st
 import numpy as np
+import os
+import requests
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 from PIL import Image
 import matplotlib.pyplot as plt
 
-# Page config
-st.set_page_config(page_title="🧠 Parkinson's Detector", layout="centered")
+# --- Download model from Google Drive ---
+def download_model_from_gdrive(file_id, dest_path):
+    if not os.path.exists(dest_path):
+        with st.spinner("📥 Downloading model from Google Drive..."):
+            url = f"https://drive.google.com/uc?export=download&id={file_id}"
+            response = requests.get(url)
+            with open(dest_path, 'wb') as f:
+                f.write(response.content)
+            st.success("✅ Model downloaded successfully!")
 
-st.title("🧠 Parkinson's Disease Detection from Drawing")
-st.markdown("Upload a spiral or wave drawing image, and this app will predict whether the patient is **Healthy** or has **Parkinson's Disease**.")
+# --- Setup ---
+MODEL_FILE = "model.h5"
+GDRIVE_FILE_ID = "1cndFy5v6750UPrBgEJ0hb70ZDUe_LnTy"
+download_model_from_gdrive(GDRIVE_FILE_ID, MODEL_FILE)
 
-# Load model
-@st.cache_resource
-def load_parkinsons_model():
-    model = load_model("model.h5")
-    return model
+# --- Load model ---
+model = load_model(MODEL_FILE)
+IMG_SIZE = 256
+CLASS_NAMES = ['Healthy', 'Parkinson']
 
-model = load_parkinsons_model()
-IMG_SIZE = 256  # must match training input size
+# --- Streamlit UI ---
+st.set_page_config(page_title="🧠 Parkinson's Detection", layout="centered")
+st.title("🧠 Parkinson's Disease Detection")
+st.markdown("Upload a **spiral or wave image** to check if it's predicted as Healthy or Parkinson's.")
 
-# Upload image
-uploaded_file = st.file_uploader("\ud83d\udcc4 Upload a Spiral or Wave Image (JPG/PNG)", type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader("📤 Upload an image", type=["jpg", "jpeg", "png"])
 
-if uploaded_file is not None:
-    # Display image
-    img = Image.open(uploaded_file).convert('RGB')
-    st.image(img, caption="\ud83c\udfa8 Uploaded Image", use_column_width=True)
+if uploaded_file:
+    # Display uploaded image
+    img = Image.open(uploaded_file).convert("RGB")
+    st.image(img, caption="Uploaded Image", use_column_width=True)
 
     # Preprocess
-    img = img.resize((IMG_SIZE, IMG_SIZE))
-    img_array = image.img_to_array(img) / 255.0
+    img_resized = img.resize((IMG_SIZE, IMG_SIZE))
+    img_array = image.img_to_array(img_resized) / 255.0
     img_array = np.expand_dims(img_array, axis=0)
 
     # Predict
-    prediction = model.predict(img_array)
-    predicted_class = np.argmax(prediction, axis=1)[0]
-    confidence = float(np.max(prediction))
+    pred_probs = model.predict(img_array)[0]
+    pred_class = np.argmax(pred_probs)
+    confidence = pred_probs[pred_class] * 100
+    label = CLASS_NAMES[pred_class]
 
-    class_names = ['Healthy', 'Parkinson']
-    predicted_label = class_names[predicted_class]
-
-    # Result
-    st.subheader("\ud83d\udccc Prediction")
-    st.success(f"**{predicted_label}** ({confidence * 100:.2f}% confidence)")
-
-    # Probability chart
-    st.subheader("\ud83d\udcca Class Probabilities")
-    st.bar_chart({
-        "Healthy": [prediction[0][0]],
-        "Parkinson": [prediction[0][1]]
-    })
+    # Output
+    st.markdown("---")
+    st.subheader("📊 Prediction")
+    st.markdown(f"**🧠 Predicted Class:** `{label}`")
+    st.markdown(f"**🔍 Confidence:** `{confidence:.2f}%`")
