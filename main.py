@@ -6,23 +6,23 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 from PIL import Image
 
-# --- Download model from Google Drive ---
-def download_model_from_gdrive(file_id, dest_path):
-    if not os.path.exists(dest_path):
-        with st.spinner("📥 Downloading model from Google Drive..."):
-            url = f"https://drive.google.com/uc?id={file_id}"
-            gdown.download(url, dest_path, quiet=False)
-            st.success("✅ Model downloaded successfully!")
-
-# --- Setup ---
+# --- Constants ---
 MODEL_FILE = "model.h5"
 GDRIVE_FILE_ID = "1cndFy5v6750UPrBgEJ0hb70ZDUe_LnTy"
-download_model_from_gdrive(GDRIVE_FILE_ID, MODEL_FILE)
-
-# --- Load model ---
-model = load_model(MODEL_FILE)
 IMG_SIZE = 256
 CLASS_NAMES = ['Healthy', 'Parkinson']
+
+# --- Function to download model from Google Drive using gdown ---
+def download_model():
+    if not os.path.exists(MODEL_FILE):
+        with st.spinner("📥 Downloading model from Google Drive..."):
+            url = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
+            gdown.download(url, MODEL_FILE, quiet=False)
+            st.success("✅ Model downloaded successfully!")
+
+# --- Download and load model ---
+download_model()
+model = load_model(MODEL_FILE, compile=False)
 
 # --- Streamlit UI ---
 st.set_page_config(page_title="🧠 Parkinson's Detection", layout="centered")
@@ -32,7 +32,7 @@ st.markdown("Upload a **spiral or wave drawing image** to check if it's predicte
 uploaded_file = st.file_uploader("📤 Upload an image", type=["jpg", "jpeg", "png"])
 
 if uploaded_file:
-    # Display uploaded image
+    # Display image
     img = Image.open(uploaded_file).convert("RGB")
     st.image(img, caption="Uploaded Image", use_column_width=True)
 
@@ -49,6 +49,6 @@ if uploaded_file:
 
     # Output
     st.markdown("---")
-    st.subheader("📊 Prediction")
+    st.subheader("📊 Prediction Result")
     st.markdown(f"**🧠 Predicted Class:** `{label}`")
     st.markdown(f"**🔍 Confidence:** `{confidence:.2f}%`")
